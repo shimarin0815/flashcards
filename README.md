@@ -34,7 +34,7 @@
 ---
 
 ## 🌐 公開ページ
-👉 [GitHub PagesのURLをここに貼る]
+👉 [https://shimarin0815.github.io/flashcards/]
 
 ---
 
