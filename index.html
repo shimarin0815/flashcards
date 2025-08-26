@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>暗記カード自動メーカー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #f8fbff;
+      --panel: rgba(255,255,255,0.75);
+      --ink: #1f2a44;
+      --sub: #546285;
+      --accent: #6e8bff;
+      --accent-2: #ff7ac2;
+      --ok: #2cc5a3;
+      --warn:#ffae55;
+      --radius: 18px;
+      --shadow: 0 20px 40px rgba(0,0,0,.08);
+    }
+    *{ box-sizing:border-box }
+    body{
+      margin:0; color:var(--ink); background: linear-gradient(135deg,#f7f5ff, #ecfbff 40%, #fffaf2);
+      font-family: 'Noto Sans JP', 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      min-height:100vh; display:flex; flex-direction:column;
+    }
+    header{
+      position:sticky; top:0; backdrop-filter: blur(12px);
+      background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.6));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      z-index:10;
+    }
+    .container{ max-width:1100px; width:100%; margin:0 auto; padding: 16px 20px; }
+    .row{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+    h1{
+      margin:0; letter-spacing:.02em; display:flex; align-items:center; gap:10px;
+      font-weight:700; font-size: clamp(20px, 2.4vw, 28px);
+    }
+    .badge{
+      font-size:12px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff;
+      padding:4px 10px; border-radius: 999px; box-shadow: var(--shadow);
+    }
+    .panel{
+      background: var(--panel); border:1px solid rgba(0,0,0,.06); border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .toolbar{ display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
+    select, input[type="text"], textarea{
+      width:100%; border:1px solid rgba(0,0,0,.08); background:#fff; color:var(--ink);
+      border-radius:12px; padding:12px 14px; outline:none; transition:.2s;
+    }
+    select:focus, input:focus, textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 4px rgba(110,139,255,.15) }
+    button{
+      border:none; padding:12px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+      background:#fff; color:var(--ink); border:1px solid rgba(0,0,0,.08); transition:.2s;
+    }
+    button:hover{ transform: translateY(-1px); box-shadow: var(--shadow) }
+    .btn-primary{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; border:none }
+    .btn-ghost{ background: transparent; border: 1px dashed rgba(0,0,0,.2) }
+    .spacer{ flex:1 }
+
+    /* Tabs */
+    .tabs{ display:flex; gap:8px; margin-top:14px }
+    .tab{ padding:10px 14px; border-radius:999px; background:#fff; border:1px solid rgba(0,0,0,.06); cursor:pointer; font-weight:600 }
+    .tab.active{ background:linear-gradient(135deg,#fff, #f2f6ff); border-color: var(--accent); box-shadow: 0 6px 20px rgba(110,139,255,.2) }
+
+    main{ flex:1 }
+    .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:20px; padding:20px }
+    @media (max-width: 900px){ .grid{ grid-template-columns: 1fr } }
+
+    /* Creator */
+    .creator .section{ padding:16px; }
+    .creator .two{ display:grid; grid-template-columns: 1fr 1fr; gap:12px }
+
+    .list .item{ display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:center; padding:10px; border-radius:12px; border:1px solid rgba(0,0,0,.06); background:#fff }
+    .list .item input{ padding:8px 10px }
+
+    /* Study Card */
+    .study-wrap{ display:flex; flex-direction:column; gap:16px; align-items:center; padding:16px }
+    .card3d{ width:min(580px, 95%); height:330px; perspective:1200px }
+    .card-inner{ position:relative; width:100%; height:100%; transform-style:preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1) }
+    .card-inner.flipped{ transform: rotateY(180deg) }
+    .face{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:26px; backface-visibility:hidden; border-radius:20px; border:1px solid rgba(0,0,0,.06); background:linear-gradient(180deg,#fff, #f7f9ff) }
+    .back{ transform: rotateY(180deg) }
+    .face h2{ font-size: clamp(20px, 2.2vw, 26px); margin:0 }
+
+    .study-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
+    .pill{ padding:8px 12px; border-radius:999px; background:#fff; border:1px solid rgba(0,0,0,.08); font-size:12px; color:var(--sub) }
+
+    .foot{ text-align:center; color:var(--sub); font-size:12px; padding:10px 0 24px }
+    .link{ color: var(--accent); font-weight:600; text-decoration: none }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="row">
+        <h1>📚 暗記カード自動メーカー <span class="badge">flip & random</span></h1>
+        <div class="spacer"></div>
+        <div class="toolbar">
+          <label style="font-size:12px;color:var(--sub);display:block">教科（科目）</label>
+          <select id="subjectSelect"></select>
+          <button id="addSubjectBtn">＋ 教科を追加</button>
+          <button id="renameSubjectBtn">教科名の変更</button>
+          <button id="removeSubjectBtn" class="btn-ghost">教科を削除</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-tab="create">カード作成</div>
+          <div class="tab" data-tab="study">学習モード</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <!-- Left: Creator / Study -->
+      <section class="panel creator" id="tab-create">
+        <div class="section">
+          <h3 style="margin:0 0 8px">① 単語を入れてカードを作成</h3>
+          <p style="color:var(--sub);margin-top:0">表＝キーワード、裏＝答え。Enterでサクッと追加できます。</p>
+          <div class="two">
+            <input id="qInput" type="text" placeholder="例）photosynthesis（光合成）" />
+            <input id="aInput" type="text" placeholder="例）植物が光で栄養を作るはたらき" />
+          </div>
+          <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
+            <button class="btn-primary" id="addCardBtn">＋ カード追加（Enter）</button>
+            <span class="pill">合計 <span id="countSpan">0</span> 枚</span>
+            <div class="spacer"></div>
+            <button id="exportBtn">JSONエクスポート</button>
+            <label for="importFile" class="btn-ghost" style="cursor:pointer">JSONインポート</label>
+            <input id="importFile" type="file" accept="application/json" style="display:none"/>
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,.08)">
+        <div class="section">
+          <h3 style="margin:0 0 8px">② まとめて追加（行ごと）</h3>
+          <p style="color:var(--sub);margin-top:0">「キーワード : 答え」形式で1行に1セット。例）<code>atom : 物質をつくる最小の粒</code></p>
+          <textarea id="bulkArea" rows="6" placeholder="river : 川\nmountain : 山\n..."></textarea>
+          <div style="margin-top:10px; display:flex; gap:10px">
+            <button id="bulkAddBtn">↑ この内容をカードに変換</button>
+            <button id="bulkClearBtn">入力をクリア</button>
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,.08)">
+        <div class="section">
+          <h3 style="margin:0 0 8px">③ カード一覧（編集・削除OK）</h3>
+          <div id="list" class="list" style="display:flex; flex-direction:column; gap:10px"></div>
+        </div>
+      </section>
+
+      <!-- Right: Study -->
+      <section class="panel" id="tab-study" style="display:none">
+        <div class="study-wrap">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center">
+            <button id="startStudyBtn" class="btn-primary">学習開始</button>
+            <button id="shuffleBtn">シャッフル</button>
+            <button id="prevBtn">← 前へ</button>
+            <button id="flipBtn">カードをめくる（Space）</button>
+            <button id="nextBtn">次へ →</button>
+            <button id="randomBtn">ランダム出題（R）</button>
+          </div>
+          <div class="card3d" id="card3d">
+            <div class="card-inner" id="cardInner">
+              <div class="face front"><h2 id="frontText">ここにキーワード</h2></div>
+              <div class="face back"><h2 id="backText">ここに答え</h2></div>
+            </div>
+          </div>
+          <div class="study-controls">
+            <span class="pill">教科：<b id="subjName">-</b></span>
+            <span class="pill">枚数：<b id="totalSpan">0</b></span>
+            <span class="pill">今：<b id="indexSpan">0</b> / <b id="total2Span">0</b></span>
+            <span class="pill">正解率：<b id="rateSpan">0%</b></span>
+          </div>
+          <div style="font-size:12px;color:var(--sub)">クリックでもめくれます。キーボード：Space=めくる、←/→=移動、R=ランダム</div>
+        </div>
+      </section>
+
+      <!-- Right column: Tips -->
+      <aside class="panel" style="padding:16px">
+        <h3 style="margin-top:0">使い方</h3>
+        <ol>
+          <li>上の「教科」を選ぶか、追加します。</li>
+          <li>①でキーワードと答えを入れて「カード追加」。</li>
+          <li>たくさんある時は②のテキストにまとめて貼って「変換」。</li>
+          <li>③で直したり、いらないカードは🗑️で削除。</li>
+          <li>「学習モード」タブに切り替えてスタート！カードをクリックかSpaceでめくるよ。</li>
+        </ol>
+        <p class="pill">データはブラウザに自動保存（localStorage）。パソコンを閉じても残ります。</p>
+        <p style="color:var(--sub)">SNSに共有したい時は「JSONエクスポート」でデータを保存→別のPCで「JSONインポート」。</p>
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,.08)">
+        <h4>ショートカット</h4>
+        <ul>
+          <li>Enter：カード追加</li>
+          <li>Space：めくる</li>
+          <li>←/→：移動</li>
+          <li>R：ランダム出題</li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+
+  <div class="foot">Made with ♥ / 保存先：browser localStorage / v1.0</div>
+
+  <script>
+    // ====== 永続化（localStorage） ======
+    const STORAGE_KEY = 'anki_db_v1';
+    const initialDB = { subjects: { 'デフォルト': [] }, lastSubject: 'デフォルト' };
+    let db = loadDB();
+    function loadDB(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw){ localStorage.setItem(STORAGE_KEY, JSON.stringify(initialDB)); return structuredClone(initialDB); }
+        const parsed = JSON.parse(raw);
+        if(!parsed.subjects) parsed.subjects = { 'デフォルト': [] };
+        if(!parsed.lastSubject) parsed.lastSubject = Object.keys(parsed.subjects)[0] || 'デフォルト';
+        return parsed;
+      }catch(e){ console.error(e); return structuredClone(initialDB) }
+    }
+    function saveDB(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)) }
+
+    // ====== ユーティリティ ======
+    const $ = s => document.querySelector(s);
+    const el = (tag, attrs={}, children=[]) => {
+      const x = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v])=>{ if(k==='class') x.className=v; else if(k==='html') x.innerHTML=v; else x.setAttribute(k,v) });
+      children.forEach(c=> x.appendChild(c));
+      return x;
+    }
+    const uid = () => Math.random().toString(36).slice(2,9);
+
+    // ====== 教科（科目）管理 ======
+    const subjectSelect = $('#subjectSelect');
+    function refreshSubjects(){
+      subjectSelect.innerHTML='';
+      Object.keys(db.subjects).forEach(name=>{
+        const opt = el('option',{ value:name }); opt.textContent = name; subjectSelect.appendChild(opt);
+      });
+      if(!db.subjects[db.lastSubject]) db.lastSubject = Object.keys(db.subjects)[0] || 'デフォルト';
+      subjectSelect.value = db.lastSubject;
+      $('#subjName').textContent = db.lastSubject;
+      renderList(); updateCounters();
+    }
+    function ensureSubject(name){ if(!db.subjects[name]) db.subjects[name] = [] }
+
+    // Add/Rename/Remove Subject
+    $('#addSubjectBtn').addEventListener('click', ()=>{
+      const name = prompt('新しい教科名を入れてください（例：英語、理科）');
+      if(!name) return;
+      if(db.subjects[name]) return alert('同じ名前が既にあります');
+      db.subjects[name] = [];
+      db.lastSubject = name; saveDB(); refreshSubjects();
+    });
+    $('#renameSubjectBtn').addEventListener('click', ()=>{
+      const cur = subjectSelect.value;
+      const name = prompt('教科名を変更', cur);
+      if(!name || name===cur) return;
+      if(db.subjects[name]) return alert('その名前は使えません');
+      db.subjects[name] = db.subjects[cur]; delete db.subjects[cur];
+      db.lastSubject = name; saveDB(); refreshSubjects();
+    });
+    $('#removeSubjectBtn').addEventListener('click', ()=>{
+      const cur = subjectSelect.value;
+      if(!confirm(`「${cur}」を削除しますか？（カードも消えます）`)) return;
+      delete db.subjects[cur];
+      if(Object.keys(db.subjects).length===0){ db.subjects['デフォルト']=[]; db.lastSubject='デフォルト'; }
+      else { db.lastSubject = Object.keys(db.subjects)[0]; }
+      saveDB(); refreshSubjects();
+    });
+    subjectSelect.addEventListener('change', ()=>{ db.lastSubject = subjectSelect.value; saveDB(); refreshSubjects(); })
+
+    // ====== カード作成・一覧 ======
+    const qInput = $('#qInput');
+    const aInput = $('#aInput');
+    const listDiv = $('#list');
+
+    function addCard(q,a){
+      const subj = db.lastSubject; ensureSubject(subj);
+      if(!q.trim() || !a.trim()) return;
+      db.subjects[subj].push({ id: uid(), q: q.trim(), a: a.trim() });
+      saveDB(); renderList(); updateCounters();
+      qInput.value=''; aInput.value=''; qInput.focus();
+    }
+
+    function renderList(){
+      const subj = db.lastSubject; ensureSubject(subj);
+      listDiv.innerHTML='';
+      db.subjects[subj].forEach(item=>{
+        const qi = el('input', { type:'text', value:item.q });
+        const ai = el('input', { type:'text', value:item.a });
+        const del = el('button'); del.textContent='🗑️';
+        del.addEventListener('click', ()=>{ if(confirm('削除してよい？')){ db.subjects[subj] = db.subjects[subj].filter(x=>x.id!==item.id); saveDB(); renderList(); updateCounters(); }});
+        qi.addEventListener('change', ()=>{ item.q = qi.value; saveDB() });
+        ai.addEventListener('change', ()=>{ item.a = ai.value; saveDB() });
+        const row = el('div', { class:'item' }, [qi,ai,del]);
+        listDiv.appendChild(row);
+      })
+      if(db.subjects[subj].length===0){
+        listDiv.appendChild(el('div',{class:'item', html:'<em>まだカードがありません。上のフォームから追加してね。</em>'}))
+      }
+    }
+
+    $('#addCardBtn').addEventListener('click', ()=> addCard(qInput.value, aInput.value));
+    qInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ addCard(qInput.value, aInput.value) } });
+    aInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ addCard(qInput.value, aInput.value) } });
+
+    // Bulk add
+    $('#bulkAddBtn').addEventListener('click', ()=>{
+      const text = $('#bulkArea').value; if(!text.trim()) return;
+      const lines = text.split(/\n+/);
+      let ok=0, ng=0;
+      lines.forEach(line=>{
+        const m = line.split(/\s*[:：]\s*/); // 「:」または「：」
+        if(m.length>=2){ addCard(m[0], m.slice(1).join(':')); ok++; }
+        else if(line.trim()){ ng++; }
+      });
+      alert(`追加：${ok}件\n形式エラー：${ng}件`);
+    });
+    $('#bulkClearBtn').addEventListener('click', ()=> $('#bulkArea').value='');
+
+    // Export / Import
+    $('#exportBtn').addEventListener('click', ()=>{
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(db));
+      const a = el('a', { href:dataStr, download:'anki-data.json' });
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    $('#importFile').addEventListener('change', (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const imported = JSON.parse(reader.result);
+          if(!imported.subjects) throw new Error('形式が違います');
+          db = imported; saveDB(); refreshSubjects(); alert('インポート完了！');
+        }catch(err){ alert('読み込みに失敗：' + err.message) }
+      }
+      reader.readAsText(file);
+      e.target.value='';
+    })
+
+    // ====== 学習モード ======
+    const tabs = document.querySelectorAll('.tab');
+    const tabCreate = $('#tab-create');
+    const tabStudy  = $('#tab-study');
+    tabs.forEach(t=> t.addEventListener('click', ()=>{
+      tabs.forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      if(t.dataset.tab==='create'){ tabCreate.style.display='block'; tabStudy.style.display='none'; }
+      else { tabCreate.style.display='none'; tabStudy.style.display='block'; }
+    }));
+
+    let study = { list:[], i:0, flipped:false, correct:0, tried:0 };
+
+    function startStudy(){
+      const subj = db.lastSubject; const arr = db.subjects[subj]||[];
+      if(arr.length===0){ alert('この教科にカードがありません'); return; }
+      study = { list: arr.map(x=>({...x})), i:0, flipped:false, correct:0, tried:0 };
+      updateStudyCard();
+      updateStats();
+    }
+
+    function updateStudyCard(){
+      const cur = study.list[study.i];
+      $('#frontText').textContent = cur ? cur.q : '—';
+      $('#backText').textContent  = cur ? cur.a : '—';
+      $('#cardInner').classList.toggle('flipped', study.flipped);
+      $('#subjName').textContent = db.lastSubject;
+      $('#totalSpan').textContent = study.list.length;
+      $('#indexSpan').textContent = (study.i+1);
+      $('#total2Span').textContent = study.list.length;
+    }
+
+    function updateStats(){
+      const rate = study.tried ? Math.round(100*study.correct/study.tried) : 0;
+      $('#rateSpan').textContent = rate + '%';
+    }
+
+    function flip(){ study.flipped = !study.flipped; updateStudyCard(); }
+    function next(rand=false){
+      if(study.list.length===0) return;
+      if(rand){ study.i = Math.floor(Math.random()*study.list.length) }
+      else { study.i = (study.i + 1) % study.list.length }
+      study.flipped = false; updateStudyCard();
+    }
+    function prev(){ if(study.list.length===0) return; study.i = (study.i - 1 + study.list.length) % study.list.length; study.flipped=false; updateStudyCard(); }
+    function shuffle(){ study.list.sort(()=> Math.random() - .5); study.i=0; study.flipped=false; updateStudyCard(); }
+
+    // UI handlers
+    $('#startStudyBtn').addEventListener('click', startStudy);
+    $('#flipBtn').addEventListener('click', flip);
+    $('#nextBtn').addEventListener('click', ()=> next(false));
+    $('#prevBtn').addEventListener('click', prev);
+    $('#randomBtn').addEventListener('click', ()=> next(true));
+    $('#shuffleBtn').addEventListener('click', shuffle);
+    $('#card3d').addEventListener('click', flip);
+
+    // キー操作
+    window.addEventListener('keydown', (e)=>{
+      if(tabStudy.style.display==='none') return;
+      if(e.code==='Space'){ e.preventDefault(); flip(); }
+      else if(e.key==='ArrowRight'){ next(false) }
+      else if(e.key==='ArrowLeft'){ prev() }
+      else if(e.key.toLowerCase()==='r'){ next(true) }
+      else if(e.key.toLowerCase()==='s'){ shuffle() }
+    })
+
+    function updateCounters(){ $('#countSpan').textContent = (db.subjects[db.lastSubject]||[]).length }
+
+    // 初期表示
+    refreshSubjects();
+  </script>
+</body>
+</html>
